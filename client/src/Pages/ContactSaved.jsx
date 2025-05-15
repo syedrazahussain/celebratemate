@@ -10,7 +10,7 @@ const ContactSaved = () => {
         const fetch_data = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const response = await axios.get('http://localhost:5000/api/savedcontact', {
+                const response = await axios.get('https://celebratemate-backend.onrender.com/api/savedcontact', {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                     },
