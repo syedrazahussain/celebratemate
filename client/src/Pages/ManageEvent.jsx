@@ -15,7 +15,7 @@ const ManageEvent = () => {
             try {
                 const token = localStorage.getItem('token');
     
-                const response = await axios.get('http://localhost:5000/api/fetch_event', {
+                const response = await axios.get('https://celebratemate-backend.onrender.com/api/fetch_event', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -44,7 +44,7 @@ const ManageEvent = () => {
 
     const handleDelete =async(id)=>{
         try {
-            await axios.delete(`http://localhost:5000/api/event/${id}`);
+            await axios.delete(`https://celebratemate-backend.onrender.com/api/event/${id}`);
             toast.success('Event deleted successfully!', { autoClose: 3000 });
 
             
