@@ -68,7 +68,7 @@ const RegisterEvent = () => {
         };
 
         try {
-            const response = await axios.post('http://localhost:5000/api/event', data, {
+            const response = await axios.post('https://celebratemate-backend.onrender.com/api/event', data, {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
