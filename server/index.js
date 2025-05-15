@@ -5,7 +5,7 @@ const nodemailer = require('nodemailer');
 const twilio = require('twilio');
 const cors = require('cors');
 require('dotenv').config();
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwtGenerator = require('./utils/jwtGenerator');
 const { JsonWebTokenError } = require('jsonwebtoken');
 const authorization = require('./middleware/authorization');
