@@ -23,7 +23,7 @@ const ChangePassword = () => {
       const token = localStorage.getItem('token'); 
 
       const response = await axios.put(
-        'http://localhost:5000/api/changepassword',
+        'https://celebratemate-backend.onrender.com/api/changepassword',
         { email, newPassword },
         {
           headers: {
