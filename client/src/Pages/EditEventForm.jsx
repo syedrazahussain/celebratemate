@@ -23,7 +23,7 @@ const EditEventForm = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const res = await axios.get(`http://localhost:5000/api/event/${id}`);
+                const res = await axios.get(`https://celebratemate-backend.onrender.com/api/event/${id}`);
                 console.log("Response Data:", res.data);
     
                 if (res.data) {
@@ -72,7 +72,7 @@ const EditEventForm = () => {
         };
 
         try {
-            await axios.put(`http://localhost:5000/api/event/${id}`, updatedData);
+            await axios.put(`https://celebratemate-backend.onrender.com/api/event/${id}`, updatedData);
             toast.success("Event updated successfully!", { autoClose: 3000 });
             setTimeout(() => {
                 navigate('/manageevent')
