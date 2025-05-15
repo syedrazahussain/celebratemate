@@ -22,7 +22,7 @@ const Editprofile = () => {
     phone: ""
   });
 
-  const API_URL = "http://localhost:5000/api/myprofile";
+  const API_URL = "https://celebratemate-backend.onrender.com/api/myprofile";
 
   
   useEffect(() => {
