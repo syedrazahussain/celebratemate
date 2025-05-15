@@ -37,7 +37,7 @@ const UserRegister = () => {
   e.preventDefault();
   try {
     const body = { name, email, phone, password };
-    const response = await fetch('http://localhost:5000/api/userregister', {
+    const response = await fetch('https://celebratemate-backend.onrender.com/api/userregister', {
       method: 'POST',
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)
