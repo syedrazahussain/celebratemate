@@ -1,0 +1,100 @@
+.main_container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 50px;
+    overflow: auto;
+}
+
+.form_container {
+    border: 2px solid yellow;
+    box-shadow: 2px 4px 6px rgba(218, 165, 32, 0.5);
+    /* goldenrod */
+    background-color: white;
+    padding: 20px 50px;
+    border-radius: 20px;
+}
+
+form h2 {
+    display: flex;
+    justify-content: center;
+}
+
+.input_register_form_fields {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.input_register_form_fields input,
+textarea,
+select {
+    padding: 20px;
+    border-radius: 10px;
+    border-color: rgba(218, 165, 32, 0.5);
+    outline: none;
+    width: 200px;
+    font-size: 18px;
+}
+
+#name,
+#type,
+#mobile,
+#email,
+#message {
+    width: 100%;
+}
+
+.sub_btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.sub_btn button {
+    width: 50%;
+    padding: 10px;
+    border-radius: 10px;
+    outline: none;
+    background-color: rgba(218, 165, 32, 0.5);
+    font-weight: bold;
+    font-size: 18px;
+}
+
+@media (max-width: 767px) {
+    .main_container {
+        padding: 10px;
+    }
+
+    .form_container {
+        padding: 20px;
+        width: 100%;
+        overflow: hidden;
+    }
+    .form_container h2{
+        font-size: 1.4em;
+    }
+
+    .input_register_form_fields {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+   
+
+    #name,
+    #mobile,
+    #email,
+    #message, #date,#time {
+        width: 90%;
+    }
+  
+    #type{
+        width: 100%;
+    }
+
+    .sub_btn button {
+        width: 100%;
+    }
+}

@@ -1,0 +1,119 @@
+.background_banner {
+    height: 100vh;
+    width: 100%;
+    background-image: url('../assets/registerbanner.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 1024px) {
+    .background_banner {
+      background-size: cover;
+      background-position: center;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .background_banner {
+      background-size: cover;
+      background-position: center;
+    }
+  }
+
+  .background_banner h1 {
+    margin: 10px;
+    font-size: 2rem;
+  }
+
+  .register_form {
+    border: 2px solid #dadada;
+    padding: 20px 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    height: auto;
+    border-radius: 10px;
+    background-color: white;
+    box-shadow: 2px 4px 3px rgba(0, 0, 0, 0.5);
+    width: 90%;
+    max-width: 400px;
+    margin-top: 30px;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+
+  .input_field {
+    margin: 15px 0px;
+    width: 100%;
+  }
+
+  .input_field input {
+    font-size: 16px;
+    border: 2px solid #dadada;
+    border-color: #acacac;
+    padding: 10px;
+    border-radius: 10px;
+    width: 100%;
+    outline: green;
+  }
+
+  .submit_btn button {
+    background-color: red;
+    padding: 10px;
+    width: 100%;
+    max-width: 150px;
+    color: white;
+    outline: none;
+    font-weight: bold;
+    font-size: 18px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  @media (max-width: 768px) {
+    .background_banner {
+      padding: 40px;
+    }
+
+    .register_form {
+      padding: 20px;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .input_field input {
+      font-size: 14px;
+      padding: 8px;
+    }
+
+    .submit_btn button {
+      font-size: 16px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .background_banner h1 {
+      font-size: 1.5rem;
+    }
+
+    .register_form {
+      padding: 15px;
+    }
+
+    .input_field input {
+      font-size: 12px;
+      padding: 6px;
+    }
+
+    .submit_btn button {
+      font-size: 14px;
+    }
+  }
