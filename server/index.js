@@ -52,32 +52,30 @@ app.get('/api/dashboard', authorization, async (req, res) => {
 app.post('/api/userregister', async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
-    const user = await pool.query('select * from users where email =$1', [email]);
+    
+    const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
     if (user.rows.length !== 0) {
-      return res.status(401).send("user already exist");
-
+      return res.status(401).json({ error: "User already exists" });
     }
+
     const saltRound = 10;
     const salt = await bcrypt.genSalt(saltRound);
-    const bcryptPassword = await bcrypt.hash(password, salt)
+    const bcryptPassword = await bcrypt.hash(password, salt);
 
-    const newUser = await pool.query('insert into users(name,email,phone,password) values($1,$2,$3,$4)  RETURNING *', [name, email, phone, bcryptPassword]);
+    const newUser = await pool.query(
+      'INSERT INTO users (name, email, phone, password) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, email, phone, bcryptPassword]
+    );
 
     const token = jwtGenerator(newUser.rows[0].id);
 
-    res.json({ token })
-
-
-
-
+    res.json({ token });
   } catch (err) {
-    console.error(err.message)
-    res.status(500).send("Error while registrating user")
-
+    console.error("Error while registering user:", err.message);
+    res.status(500).json({ error: "Error while registering user" });
   }
-
-})
+});
 
 
 app.post('/api/loginuser', async (req, res) => {
