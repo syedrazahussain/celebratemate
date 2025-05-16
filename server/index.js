@@ -191,12 +191,6 @@ app.get('/api/savedcontact', authorization, async (req, res) => {
     res.json({ events: events.rows });
 
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-  } catch (err) {
     console.error("Error while fetching completed events:", err.message);
     res.status(500).json({ error: "Server error" });
   }
