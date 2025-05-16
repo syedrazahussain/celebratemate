@@ -41,37 +41,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-app.get('/api/test-sms', async (req, res) => {
-  try {
-    const message = await twilioClient.messages.create({
-      to: '+918639945414', // Replace with a verified number
-      from: process.env.TWILIO_PHONE,
-      body: 'Test SMS from CelebrateMate!'
-    });
-    res.status(200).json({ message: 'SMS sent successfully!', sid: message.sid });
-  } catch (err) {
-    console.error('Twilio SMS Error:', err.message);
-    res.status(500).json({ error: 'Error sending SMS', details: err.message });
-  }
-});
 
-app.get('/api/test-email', async (req, res) => {
-  try {
-    const mailOptions = {
-      from: `"CelebrateMate" <${process.env.EMAIL}>`,
-      to: 'srazahussain123@gmail.com', // Replace with a test email
-      subject: 'Test Email from CelebrateMate',
-      html: '<h1>Hello from CelebrateMate!</h1><p>This is a test email.</p>'
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent:', info.response);
-    res.status(200).json({ message: 'Email sent successfully!' });
-  } catch (err) {
-    console.error('Email Error:', err.message);
-    res.status(500).json({ error: 'Error sending email', details: err.message });
-  }
-});
 
 app.get('/api/dashboard', authorization, async (req, res) => {
   try {
