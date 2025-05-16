@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Route,Routes } from 'react-router-dom';
 import Home from './Pages/Home';
 import UserRegister from './Pages/UserRegister';
@@ -20,6 +20,22 @@ import Editprofile from './Pages/Editprofile';
 
 
 const App = () => {
+useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetch('https://celebratemate-backend.onrender.com/api/heartbeat')
+        .then(response => {
+          if (!response.ok) {
+            console.error('Heartbeat ping failed');
+          }
+        })
+        .catch(err => {
+          console.error('Error sending heartbeat ping:', err);
+        });
+    }, 300000); // every 5 minutes
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
+  }, []);
 
 
   return (
