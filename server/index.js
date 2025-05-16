@@ -176,20 +176,21 @@ app.get('/api/savedcontact', authorization, async (req, res) => {
     const userId = req.user;
 
     const query = `
-          SELECT * FROM event 
-          WHERE user_id = $1 
-          AND (date < CURRENT_DATE OR (date = CURRENT_DATE AND time < CURRENT_TIME))
-          ORDER BY date DESC, time DESC
-      `;
+      SELECT * FROM event 
+      WHERE user_id = $1 
+        AND (date < CURRENT_DATE OR (date = CURRENT_DATE AND time < CURRENT_TIME))
+      ORDER BY date DESC, time DESC
+    `;
 
     const events = await pool.query(query, [userId]);
     res.json({ events: events.rows });
 
   } catch (err) {
-    console.error(err.message);
+    console.error("Error while fetching completed events:", err.message);
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 
 app.get('/api/event/:id', async (req, res) => {
