@@ -52,31 +52,34 @@ app.get('/api/dashboard', authorization, async (req, res) => {
 app.post('/api/userregister', async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
-    
+
+    if (!name || !email || !phone || !password) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
     const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
     if (user.rows.length !== 0) {
       return res.status(401).json({ error: "User already exists" });
     }
 
-    const saltRound = 10;
-    const salt = await bcrypt.genSalt(saltRound);
+    const salt = await bcrypt.genSalt(10);
     const bcryptPassword = await bcrypt.hash(password, salt);
 
     const newUser = await pool.query(
-      'INSERT INTO users (name, email, phone, password) VALUES ($1, $2, $3, $4) RETURNING *',
+      'INSERT INTO users (name, email, phone, password) VALUES ($1, $2, $3, $4) RETURNING id',
       [name, email, phone, bcryptPassword]
     );
 
     const token = jwtGenerator(newUser.rows[0].id);
 
     res.json({ token });
+
   } catch (err) {
     console.error("Error while registering user:", err.message);
-    res.status(500).json({ error: "Error while registering user" });
+    res.status(500).json({ error: "Error while registering user", details: err.message });
   }
 });
-
 
 app.post('/api/loginuser', async (req, res) => {
   try {
