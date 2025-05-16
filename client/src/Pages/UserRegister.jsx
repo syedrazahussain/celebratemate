@@ -33,7 +33,7 @@ const UserRegister = () => {
     }, [])
   
 
-  const onSubmitForm = async (e) => {
+ const onSubmitForm = async (e) => {
   e.preventDefault();
   try {
     const body = { name, email, phone, password };
@@ -53,11 +53,11 @@ const UserRegister = () => {
         navigate('/userlogin');
       }, 2000);
     } else {
-      toast.error(parseRes, { autoClose: 3000 });
+      toast.error(parseRes.error || "Registration failed", { autoClose: 3000 });
     }
 
   } catch (err) {
-    console.error(err.message);
+    console.error("Client Error:", err.message);
     toast.error('Error while registration', { autoClose: 3000 });
   }
 };
