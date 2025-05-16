@@ -178,12 +178,7 @@ app.get('/api/savedcontact', authorization, async (req, res) => {
     const query = `
           SELECT * FROM event 
           WHERE user_id = $1 
-          AND (
-            (date < (CURRENT_DATE AT TIME ZONE 'Asia/Kolkata')) 
-            OR 
-            (date = (CURRENT_DATE AT TIME ZONE 'Asia/Kolkata') 
-            AND time < (CURRENT_TIME AT TIME ZONE 'Asia/Kolkata'))
-          )
+          AND (date + time < NOW()::timestamp)
           ORDER BY date DESC, time DESC
       `;
 
@@ -195,7 +190,6 @@ app.get('/api/savedcontact', authorization, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
-
 
 
 
