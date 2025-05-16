@@ -400,6 +400,11 @@ cron.schedule('* * * * *', async () => {
   }
 });
 
+app.get('/api/heartbeat', (req, res) => {
+  res.status(200).send('OK');
+});
+
+
 
 
 const PORT = process.env.PORT || 5000;
