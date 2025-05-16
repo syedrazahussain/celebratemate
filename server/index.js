@@ -368,7 +368,7 @@ cron.schedule('* * * * *', async () => {
     for (let event of result.rows) {
       const { mobile, email, message, sender_name, sender_email, type } = event;
 
-      try {
+     try {
         await twilioClient.messages.create({
           to: mobile,
           from: process.env.TWILIO_PHONE,
@@ -377,6 +377,11 @@ cron.schedule('* * * * *', async () => {
         console.log(`SMS sent to ${mobile}`);
       } catch (err) {
         console.error(`Error sending SMS to ${mobile}: ${err.message}`);
+
+        // Specific handling for unverified numbers (Twilio error code 21608)
+        if (err.code === 21608) {
+          console.warn(`The number ${mobile} is unverified. SMS not sent.`);
+        }
       }
 
       try {
@@ -384,16 +389,43 @@ cron.schedule('* * * * *', async () => {
           from: `"${sender_name}" <${process.env.EMAIL}>`,
           replyTo: sender_email,
           to: email,
-          subject: `Reminder - ${type}`,
-          html: `<p>${message}</p><p>- ${sender_name}</p>`
+          subject: `A Thoughtful Wish Just for You - ${type}`,
+          html: `
+            <div style="font-family: 'Segoe UI', sans-serif; background-color: #fafafa; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #FF6347; font-weight: 600;">💫 A Special Wish for You 💫</h2>
+              </div>
+
+              <div style="background-color: #ffffff; padding: 20px; border-radius: 10px;">
+                <p style="font-size: 16px; color: #333;">Hey there,</p>
+                <p style="font-size: 16px; color: #555; line-height: 1.6;">
+                  "${message}"
+                </p>
+
+                <br />
+
+                <p style="font-size: 16px; color: #555;">With warm wishes,</p>
+                <p style="font-size: 16px; font-weight: bold; color: #333;">${sender_name}</p>
+                <p style="font-size: 14px; color: #777;">
+                  Reach me at <a href="mailto:${sender_email}" style="color: #FF6347;">${sender_email}</a>
+                </p>
+              </div>
+
+              <div style="text-align: center; margin-top: 30px;">
+                <p style="font-size: 12px; color: #999;">
+                  Sent with 💖 by your thoughtful friend, ${sender_name}.
+                </p>
+              </div>
+            </div>
+          `
         });
         console.log(`Email sent to ${email}`);
       } catch (err) {
         console.error(`Error sending Email to ${email}: ${err.message}`);
       }
     }
-  } catch (err) {
-    console.error('Error fetching events for notification:', err.message);
+  } catch (error) {
+    console.error('Error fetching events for notification:', error.message);
   }
 });
 
