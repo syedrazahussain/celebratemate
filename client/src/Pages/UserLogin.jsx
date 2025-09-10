@@ -38,7 +38,7 @@ const UserRegister = () => {
 
       const response = await fetch('https://celebratemate-backend.onrender.com/api/loginuser', {
         method: 'post',
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 'Content-Type': 'application/json' },
 
         body: JSON.stringify(body)
 
