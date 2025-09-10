@@ -42,13 +42,16 @@ const UserRegister = () => {
         body: JSON.stringify(body)
 
       })
-      const parseRes = await response.json()
-      localStorage.setItem('token', parseRes.token);
-      toast.success('Login Successfully', { autoClose: 2000 });
+    const parseRes = await response.json();
 
-      setTimeout(() => {
-        navigate('/')
-      }, 3000);
+if (response.ok && parseRes.token) {
+  localStorage.setItem("token", parseRes.token);
+  toast.success("Login Successfully", { autoClose: 2000 });
+  setTimeout(() => navigate("/"), 3000);
+} else {
+  toast.error(parseRes.error || "Invalid credentials", { autoClose: 3000 });
+}
+
 
 
     } catch (err) {
