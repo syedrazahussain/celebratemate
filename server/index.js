@@ -93,19 +93,17 @@ app.post('/api/loginuser', async (req, res) => {
 
     const existinguser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
-    if (existinguser.rows.length === 0) {
-      return res.status(401).json("Email or password is incorrect");
-    }
+  if (existinguser.rows.length === 0) {
+  return res.status(401).json({ error: "Email or password is incorrect" });
+}
 
     const validPassword = await bcrypt.compare(password, existinguser.rows[0].password);
+if (!validPassword) {
+  return res.status(401).json({ error: "Password or email is incorrect" });
+}
 
-    if (!validPassword) {
-      return res.status(401).json("Password or email is incorrect");
-    }
-
-    const token = jwtGenerator(existinguser.rows[0].id);
-
-    res.json({ token });
+  const token = jwtGenerator(existinguser.rows[0].id);
+return res.json({ token });
 
   } catch (err) {
     console.error(err.message);
