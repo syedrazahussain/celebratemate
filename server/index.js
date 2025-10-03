@@ -33,13 +33,31 @@ const pool = new Pool({
 const twilioClient = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH);
 
 
+// const transporter = nodemailer.createTransport({
+//   service: 'gmail',
+//   auth: {
+//     user: process.env.EMAIL,
+//     pass: process.env.EMAIL_PASS,
+//   },
+// });
+
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: "smtp.gmail.com",
+  port: 465,          // use 587 if 465 is blocked
+  secure: true,       // true for port 465, false for 587
   auth: {
     user: process.env.EMAIL,
     pass: process.env.EMAIL_PASS,
   },
 });
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("SMTP connection failed:", error);
+  } else {
+    console.log("SMTP server is ready to send messages");
+  }
+});
+
 
 
 
@@ -354,6 +372,8 @@ cron.schedule('* * * * *', async () => {
       }
 
       try {
+        console.log("Trying to send email with:", process.env.EMAIL, "->", email);
+
         await transporter.sendMail({
           from: `"${sender_name}" <${process.env.EMAIL}>`,
           replyTo: sender_email,
