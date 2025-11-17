@@ -21,6 +21,17 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(cors({
+  origin: [
+    "https://celebratemate-client.onrender.com",
+    "http://localhost:3000"
+  ],
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  credentials: true,
+}));
+
+app.options('*', cors()); // 👈 handles preflight OPTIONS
+
 const pool = new Pool({
   connectionString: process.env.PG_URL,
   ssl: {
