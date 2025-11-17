@@ -10,6 +10,7 @@
     "nodemailer": "^7.0.0",
     "nodemon": "^3.1.10",
     "pg": "^8.15.6",
-    "twilio": "^5.5.2"
+    "twilio": "^5.5.2",
+    "@sendgrid/mail": "^7.7.0"
   }
 }
