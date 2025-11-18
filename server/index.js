@@ -25,7 +25,7 @@ app.use(cors({
   credentials: true,
 }));
 
-app.options('*', cors()); // 👈 handles preflight OPTIONS
+// app.options('*', cors()); // 👈 handles preflight OPTIONS
 
 const pool = new Pool({
   connectionString: process.env.PG_URL,
