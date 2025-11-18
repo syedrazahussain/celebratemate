@@ -1,4 +1,4 @@
-// server.js (updated to use SendGrid)
+// server.js (merged, SendGrid fallback to Nodemailer)
 const express = require('express');
 const { Pool } = require('pg');
 const cron = require('node-cron');
@@ -10,50 +10,88 @@ const moment = require('moment-timezone');
 const jwtGenerator = require('./utils/jwtGenerator');
 const authorization = require('./middleware/authorization');
 
-const { sendSimpleEmail } = require('./sendEmail'); // new SendGrid module
+let sendSimpleEmail = null;
+try {
+  // optional SendGrid wrapper — if present in your project it will be used
+  sendSimpleEmail = require('./sendEmail').sendSimpleEmail;
+} catch (err) {
+  // file missing -> we'll fallback to nodemailer below
+  console.log('SendGrid module not found, will fallback to SMTP if configured.');
+}
+
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(express.json());
 
+// CORS configuration: only allow your frontend origins
+const ALLOWED_ORIGINS = [
+  "https://celebratemate-client.onrender.com",
+  "http://localhost:3000"
+];
 
 app.use(cors({
-  origin: [
-    "https://celebratemate-client.onrender.com",
-    "http://localhost:3000"
-  ],
+  origin: function(origin, callback){
+    // allow requests with no origin (like mobile apps, curl)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS policy: origin not allowed'));
+    }
+  },
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
 }));
-
-
+// app.options('*', cors()); // handle preflight OPTIONS
 
 const pool = new Pool({
   connectionString: process.env.PG_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
-const twilioClient = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH);
+// Twilio client (only works if TWILIO env vars present)
+let twilioClient = null;
+if (process.env.TWILIO_SID && process.env.TWILIO_AUTH) {
+  try {
+    twilioClient = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH);
+  } catch (err) {
+    console.error('Failed to initialize Twilio client:', err.message);
+  }
+} else {
+  console.log('Twilio not configured (TWILIO_SID or TWILIO_AUTH missing). SMS will be skipped.');
+}
 
-/* ----------------- ROUTES (unchanged except minor improvements) ----------------- */
+// Nodemailer transporter (fallback)
+let transporter = null;
+if (!sendSimpleEmail) {
+  if (process.env.EMAIL && process.env.EMAIL_PASS) {
+    transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+  } else {
+    console.log('No EMAIL/EMAIL_PASS configured; nodemailer unavailable.');
+  }
+}
+
+// ----------------- ROUTES -----------------
 
 app.get('/api/dashboard', authorization, async (req, res) => {
   try {
-    const user = await pool.query('select name from users where id=$1', [req.user]);
+    const user = await pool.query('SELECT name FROM users WHERE id = $1', [req.user]);
+    if (!user.rows[0]) return res.status(404).json({ error: 'User not found' });
     res.json(user.rows[0]);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json("server error");
+    console.error('GET /api/dashboard error:', err.message);
+    res.status(500).json({ error: 'server error' });
   }
 });
-
-// register, login, is_verify, event CRUD, profile, etc.
-// (I keep your original route implementations as-is; include them here — truncated for brevity in this snippet)
-
-// ... keep all your existing route handlers here unchanged ...
-// For brevity, paste your original route handlers (userregister, loginuser, is_verify, event routes, fetch_event, etc.)
-// (In your actual server.js file keep everything you already had, only change the cron email part below)
 
 app.post('/api/userregister', async (req, res) => {
   try {
@@ -66,7 +104,7 @@ app.post('/api/userregister', async (req, res) => {
     const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
     if (user.rows.length !== 0) {
-      return res.status(401).json({ error: "User already exists" });
+      return res.status(409).json({ error: "User already exists" });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -79,7 +117,7 @@ app.post('/api/userregister', async (req, res) => {
 
     const token = jwtGenerator(newUser.rows[0].id);
 
-    res.json({ token });
+    res.status(201).json({ token });
 
   } catch (err) {
     console.error("Error while registering user:", err.message);
@@ -87,22 +125,266 @@ app.post('/api/userregister', async (req, res) => {
   }
 });
 
-// (Include the rest of your routes exactly as before: loginuser, is_verify, event CRUD, myprofile, changepassword, etc.)
-// For brevity I'm not repeating all here — make sure your server file retains your original route handlers.
+app.post('/api/loginuser', async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-// ----------------- CRON & NOTIFICATIONS (REPLACED EMAIL LOGIC) -----------------
+    const existinguser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
+    if (existinguser.rows.length === 0) {
+      return res.status(401).json({ error: "Email or password is incorrect" });
+    }
+
+    const validPassword = await bcrypt.compare(password, existinguser.rows[0].password);
+    if (!validPassword) {
+      return res.status(401).json({ error: "Password or email is incorrect" });
+    }
+
+    const token = jwtGenerator(existinguser.rows[0].id);
+    return res.json({ token });
+
+  } catch (err) {
+    console.error('POST /api/loginuser error:', err.message);
+    if (!res.headersSent) {
+      res.status(500).send("Error while logging in user");
+    }
+  }
+});
+
+app.get('/api/is_verify', authorization, async (req, res) => {
+  try {
+    res.json(true);
+  } catch (err) {
+    console.error('GET /api/is_verify error:', err.message);
+    res.status(500).send("Error while verifying user");
+  }
+});
+
+app.post('/api/event', authorization, async (req, res) => {
+  const { name, type, date, time, mobile, email, message } = req.body;
+  const user_id = req.user;
+
+  if (!name || !date || !time) {
+    return res.status(400).json({ error: 'name, date and time are required' });
+  }
+
+  try {
+    const newEvent = await pool.query(
+      `INSERT INTO event (name, type, date, time, mobile, email, message, user_id, sent_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL) RETURNING *`,
+      [name, type, date, time, mobile, email, message, user_id]
+    );
+
+    res.status(201).json(newEvent.rows[0]);
+  } catch (err) {
+    console.error('POST /api/event error:', err.message);
+    res.status(500).send("Database error while registering event");
+  }
+});
+
+app.get('/api/fetch_event', authorization, async (req, res) => {
+  const user_id = req.user;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT id, name, type,
+             TO_CHAR(date, 'YYYY-MM-DD') AS date,
+             TO_CHAR(time, 'HH24:MI') AS time,
+             mobile, email, message
+      FROM event
+      WHERE user_id = $1
+      ORDER BY date DESC, time
+      `,
+      [user_id]
+    );
+
+    res.status(200).json({ events: result.rows });
+  } catch (err) {
+    console.error('GET /api/fetch_event error:', err.message);
+    res.status(500).send("Error while fetching user-specific events");
+  }
+});
+
+app.get('/api/savedcontact', authorization, async (req, res) => {
+  try {
+    const userId = req.user;
+
+    const query = `
+      SELECT * FROM event 
+      WHERE user_id = $1 
+      AND ( (date + time) < NOW()::timestamp )
+      ORDER BY date DESC, time DESC
+    `;
+
+    const events = await pool.query(query, [userId]);
+    res.json({ events: events.rows });
+
+  } catch (err) {
+    console.error("GET /api/savedcontact error:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.get('/api/event/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('SELECT * FROM event WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "event not found" });
+    }
+    res.json(result.rows[0]);
+
+  } catch (err) {
+    console.error('GET /api/event/:id error:', err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+app.put('/api/event/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, type, date, time, mobile, email, message } = req.body;
+  try {
+    const updateResult = await pool.query(
+      `UPDATE event
+       SET name = $1, type = $2, date = $3, time = $4, mobile = $5, email = $6, message = $7
+       WHERE id = $8
+       RETURNING *`,
+      [name, type, date, time, mobile, email, message, id]
+    );
+
+    if (updateResult.rows.length === 0) {
+      return res.status(404).json({ error: 'event not found' });
+    }
+
+    res.status(200).json({ success: true, message: 'Event updated successfully', event: updateResult.rows[0] });
+
+  } catch (err) {
+    console.error('PUT /api/event/:id error:', err.message);
+    res.status(500).send('server error');
+  }
+});
+
+app.delete('/api/event/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query("DELETE FROM event WHERE id = $1 RETURNING *", [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'event not found' });
+    }
+
+    res.json({ message: 'event deleted successfully', deletedEvent: result.rows[0] });
+  } catch (err) {
+    console.error('DELETE /api/event/:id error:', err.message);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+app.get('/api/myprofile', authorization, async (req, res) => {
+  const userId = req.user;
+
+  try {
+    const result = await pool.query('SELECT name, email, phone FROM users WHERE id = $1', [userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ user: result.rows[0] });
+
+  } catch (err) {
+    console.error("GET /api/myprofile error:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.put('/api/myprofile', authorization, async (req, res) => {
+  const userId = req.user;
+  const { name, email, phone } = req.body;
+
+  try {
+    const result = await pool.query(
+      'UPDATE users SET name = $1, email = $2, phone = $3 WHERE id = $4 RETURNING name, email, phone',
+      [name, email, phone, userId]
+    );
+
+    res.json({ user: result.rows[0] });
+  } catch (err) {
+    console.error("PUT /api/myprofile error:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.put('/api/changepassword', authorization, async (req, res) => {
+  const { email, newPassword } = req.body;
+
+  if (!email || !newPassword) {
+    return res.status(400).json({ error: 'Please provide email and password' });
+  }
+
+  try {
+    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = userResult.rows[0];
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await pool.query('UPDATE users SET password = $1 WHERE email = $2', [hashedPassword, email]);
+
+    res.status(200).json({ message: 'Password updated successfully' });
+  } catch (err) {
+    console.error('PUT /api/changepassword error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ----------------- CRON & NOTIFICATIONS -----------------
 const TIMEZONE = 'Asia/Kolkata';
+
+// helper to send email via SendGrid (if available) or Nodemailer
+async function sendEmail({ to, from, subject, html, replyTo }) {
+  if (sendSimpleEmail && process.env.SENDGRID_API_KEY) {
+    try {
+      // sendSimpleEmail expected to return something like { ok: true, status: 202 } or throw
+      return await sendSimpleEmail({ to, from, subject, html });
+    } catch (err) {
+      console.error('SendGrid sendSimpleEmail failed:', err.message);
+      throw err;
+    }
+  }
+
+  if (!transporter) {
+    const err = new Error('No email transporter available (neither SendGrid nor SMTP configured).');
+    err.code = 'NO_EMAIL_TRANSPORT';
+    throw err;
+  }
+
+  const mailOptions = {
+    from,
+    to,
+    subject,
+    html,
+  };
+  if (replyTo) mailOptions.replyTo = replyTo;
+
+  return transporter.sendMail(mailOptions);
+}
 
 cron.schedule('* * * * *', async () => {
   const now = moment().tz(TIMEZONE);
   const date = now.format('YYYY-MM-DD');
   const time = now.format('HH:mm');
 
-  console.log(`Cron job is running at ${now.format('YYYY-MM-DD HH:mm:ss')} in timezone: ${TIMEZONE}`);
+  console.log(`Cron job running at ${now.format('YYYY-MM-DD HH:mm:ss')} (${TIMEZONE})`);
 
   try {
-    // Select events that match the current minute and have not been sent yet (sent_at is null)
+    // Select events scheduled for the current minute that haven't been sent yet
     const result = await pool.query(
       `
       SELECT e.*, u.name AS sender_name, u.email AS sender_email 
@@ -116,34 +398,38 @@ cron.schedule('* * * * *', async () => {
     );
 
     if (result.rows.length === 0) {
-      console.log('No events found for this time range.');
+      // nothing to send
       return;
     }
 
-    for (let event of result.rows) {
-      const { id, mobile, email, message, sender_name, sender_email, type } = event;
+    for (let ev of result.rows) {
+      const { id, mobile, email, message, sender_name, sender_email, type } = ev;
+      let sentAny = false;
 
-      // 1) Send SMS (Twilio) - unchanged
-      try {
-        if (mobile) {
+      // send SMS if configured & mobile exists
+      if (mobile && twilioClient && process.env.TWILIO_PHONE) {
+        try {
           await twilioClient.messages.create({
             to: mobile,
             from: process.env.TWILIO_PHONE,
             body: `${message}\n\n- ${sender_name}`
           });
-          console.log(`SMS sent to ${mobile}`);
+          console.log(`SMS sent to ${mobile} for event ${id}`);
+          sentAny = true;
+        } catch (err) {
+          console.error(`Error sending SMS to ${mobile} for event ${id}:`, err && err.message ? err.message : err);
+          if (err && err.code === 21608) {
+            console.warn(`Twilio: number ${mobile} is unverified.`);
+          }
         }
-      } catch (err) {
-        console.error(`Error sending SMS to ${mobile}: ${err.message}`);
-        if (err.code === 21608) {
-          console.warn(`The number ${mobile} is unverified. SMS not sent.`);
-        }
+      } else if (mobile && !twilioClient) {
+        console.warn('Twilio client not configured; skipping SMS for', mobile);
       }
 
-      // 2) Send Email (SendGrid)
-      try {
-        console.log("Sending email via SendGrid:", process.env.SENDGRID_SENDER_EMAIL, "->", email);
-
+      // send email
+      if (email) {
+        const fromAddress = process.env.SENDGRID_SENDER_EMAIL || process.env.EMAIL || process.env.FROM_ADDRESS || (sender_email || process.env.EMAIL);
+        const subject = `A Thoughtful Wish Just for You - ${type || 'Greetings'}`;
         const html = `
           <div style="font-family: 'Segoe UI', sans-serif; background-color: #fafafa; padding: 30px; border-radius: 12px;">
             <div style="text-align: center; margin-bottom: 20px;">
@@ -163,35 +449,35 @@ cron.schedule('* * * * *', async () => {
           </div>
         `;
 
-        const sendResult = await sendSimpleEmail({
-          to: email,
-          from: `"${sender_name}" <${process.env.SENDGRID_SENDER_EMAIL}>`,
-          subject: `A Thoughtful Wish Just for You - ${type || 'Greetings'}`,
-          html
-        });
-
-        if (sendResult && sendResult.ok) {
-          console.log(`Email sent to ${email} (status ${sendResult.status})`);
-        } else {
-          console.error(`SendGrid failed for ${email}:`, sendResult.error || sendResult);
-          // decide whether to mark as sent or not - here we do NOT mark as sent if email failed
-          continue; // skip marking as sent_at
+        try {
+          await sendEmail({
+            to: email,
+            from: `"${sender_name}" <${fromAddress}>`,
+            replyTo: sender_email,
+            subject,
+            html
+          });
+          console.log(`Email sent to ${email} for event ${id}`);
+          sentAny = true;
+        } catch (err) {
+          console.error(`Error sending Email to ${email} for event ${id}:`, err && err.message ? err.message : err);
         }
-      } catch (err) {
-        console.error(`Error sending Email to ${email}:`, err);
-        continue; // skip marking as sent
       }
 
-      // 3) Mark event as sent (sent_at) once at least one channel succeeded
-      try {
-        await pool.query('UPDATE event SET sent_at = NOW() WHERE id = $1', [id]);
-        console.log(`Marked event ${id} as sent.`);
-      } catch (err) {
-        console.error(`Failed to update sent_at for event ${id}:`, err.message);
+      // mark as sent if any channel succeeded
+      if (sentAny) {
+        try {
+          await pool.query('UPDATE event SET sent_at = NOW() WHERE id = $1', [id]);
+          console.log(`Marked event ${id} as sent.`);
+        } catch (err) {
+          console.error(`Failed to update sent_at for event ${id}:`, err.message);
+        }
+      } else {
+        console.log(`No channels succeeded for event ${id}; not marking sent_at so it can retry next minute.`);
       }
     }
   } catch (error) {
-    console.error('Error fetching events for notification:', error.message);
+    console.error('Error in cron job fetching events:', error && error.message ? error.message : error);
   }
 });
 
